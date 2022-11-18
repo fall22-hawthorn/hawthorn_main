@@ -18,6 +18,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+import enchant
+from enchant.checker import SpellChecker
 ```
 
 ```python
@@ -153,6 +155,45 @@ applied_df
 
 ```python
 large_df = pd.concat([df, applied_df], axis='columns')
+```
+
+add number of misspelled words as a feature
+
+```python
+def misspelled_count(text):
+    chkr = SpellChecker("en_US")
+    chkr.set_text(text)
+    return len(list(chkr))
+```
+
+```python
+large_df['misspelled_count'] = large_df['full_text'].apply(misspelled_count)
+```
+
+```python
+large_df['misspelled_ratio'] = large_df['misspelled_count'] / large_df['words']
+```
+
+```python
+for col_name in ['wordtypes',
+                 'long_words',
+                 'complex_words',
+                 'complex_words_dc',
+                 'wu_tobeverb',
+                 'wu_auxverb',
+                 'wu_conjunction',
+                 'wu_pronoun',
+                 'wu_preposition',
+                 'wu_nominalization',]:
+    large_df[col_name + '_ratio'] = large_df[col_name] / large_df['words']
+
+for col_name in ['sb_pronoun',
+                 'sb_interrogative',
+                 'sb_article',
+                 'sb_subordination',
+                 'sb_conjunction',
+                 'sb_preposition',]:
+    large_df[col_name + '_ratio'] = large_df[col_name] / large_df['sentences']
 ```
 
 ```python
