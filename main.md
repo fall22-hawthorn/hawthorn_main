@@ -68,16 +68,6 @@ g.map(corrfunc)
 ```
 
 ```python
-if 0:
-    manual_check = df.sample(n=100, random_state=42)[['text_id', 'full_text'] + targets.to_list()].copy()
-    team_members = ['train', 'alex', 'abdallah', 'mohamed', 'shahinde']
-    for i, member in enumerate(team_members):
-        if member != 'train':
-            manual_check[targets] = 0
-        manual_check[20*i : 20*(i+1)].to_csv('manual_check_' + member + '.csv')
-```
-
-```python
 import readability
 ```
 
