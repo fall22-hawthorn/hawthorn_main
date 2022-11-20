@@ -209,3 +209,265 @@ g.map(corrfunc)
 fig, ax = plt.subplots(figsize=(10, 20))
 sns.heatmap(large_df[targets + features].corr().iloc[len(targets):, :len(targets)], annot=True, ax=ax)
 ```
+
+```python
+vocab_feature_corr = large_df[targets + features].corr().iloc[len(targets):, :len(targets)]['vocabulary'].sort_values(key=abs, ascending=False)
+```
+
+```python
+vocab_feature_corr
+```
+
+```python
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import GridSearchCV
+from sklearn.pipeline import make_pipeline, Pipeline
+from sklearn.preprocessing import Normalizer, StandardScaler
+from sklearn.model_selection import train_test_split
+```
+
+```python
+from sklearn.linear_model import LinearRegression
+```
+
+```python
+def MCRMSE(a, b):
+    return (((a - b)**2).mean(axis=0)**0.5).mean()
+
+from sklearn.metrics import make_scorer
+mcrmse_score = make_scorer(MCRMSE, greater_is_better=False) #same as scoring='neg_root_mean_squared_error'
+```
+
+```python
+scores = {}
+```
+
+```python
+n_splits = 5
+```
+
+```python
+score = cross_val_score(estimator=LinearRegression(),
+                        X=large_df[features],
+                        y=large_df[targets],
+                        scoring='neg_root_mean_squared_error',
+                        cv=n_splits,)
+```
+
+```python
+score.mean()
+```
+
+```python
+scores['linreg'] = score.mean()
+```
+
+```python
+score = cross_val_score(estimator=make_pipeline(Normalizer(), LinearRegression()),
+                        X=large_df[features],
+                        y=large_df[targets],
+                        scoring='neg_root_mean_squared_error',
+                        cv=n_splits,)
+```
+
+```python
+score.mean()
+```
+
+```python
+scores['norm_linreg'] = score.mean()
+```
+
+```python
+score = cross_val_score(estimator=make_pipeline(StandardScaler(), LinearRegression()),
+                        X=large_df[features],
+                        y=large_df[targets],
+                        scoring='neg_root_mean_squared_error',
+                        cv=n_splits,)
+```
+
+```python
+score.mean()
+```
+
+```python
+scores['std_linreg'] = score.mean()
+```
+
+```python
+from sklearn.linear_model import ElasticNet
+```
+
+```python
+gs_elastic = GridSearchCV(estimator=Pipeline([('std', StandardScaler()),
+                                              ('en', ElasticNet(random_state=42, max_iter=2000))]),
+                     param_grid={"en__alpha": [0.1, 1, 10], 'en__l1_ratio':[0, 0.25, 0.5, 0.75, 1]},
+                     scoring='neg_root_mean_squared_error',
+                     cv=n_splits)
+gs_elastic.fit(X=large_df[features], y=large_df[targets])
+```
+
+```python
+gs_elastic.best_estimator_
+```
+
+```python
+gs_elastic.best_score_
+```
+
+```python
+scores['gs_elastic'] = gs_elastic.best_score_
+```
+
+```python
+from sklearn.ensemble import RandomForestRegressor
+```
+
+```python
+score = cross_val_score(estimator=RandomForestRegressor(max_depth=5),
+                        X=large_df[features],
+                        y=large_df[targets],
+                        scoring='neg_root_mean_squared_error',
+                        cv=n_splits,)
+```
+
+```python
+score.mean()
+```
+
+```python
+gs_rf = GridSearchCV(estimator=RandomForestRegressor(),
+                     param_grid={"max_depth": [10, 12, 14]},
+                     scoring='neg_root_mean_squared_error',
+                     cv=n_splits)
+gs_rf.fit(X=large_df[features], y=large_df[targets])
+```
+
+```python
+gs_rf.best_estimator_
+```
+
+```python
+gs_rf.best_score_
+```
+
+```python
+scores['gs_rf'] = gs_rf.best_score_
+```
+
+```python
+from xgboost import XGBRegressor
+```
+
+```python
+score = cross_val_score(estimator=XGBRegressor(max_depth=5),
+                        X=large_df[features],
+                        y=large_df[targets],
+                        scoring='neg_root_mean_squared_error',
+                        cv=n_splits,)
+```
+
+```python
+score.mean()
+```
+
+```python
+X_train, X_val, y_train, y_val = train_test_split(large_df[features].copy(),
+                                                  large_df[targets].copy(),
+                                                  test_size=0.2,
+                                                  random_state=42,
+                                                  )
+```
+
+```python
+gs_xgb = GridSearchCV(estimator=XGBRegressor(early_stopping_rounds=10, n_estimators=100, random_seed=42),
+                     param_grid={"max_depth": [2, 3, 4], 'learning_rate': [0.05, 0.1, 0.5]},
+                     scoring='neg_root_mean_squared_error',
+                     cv=n_splits)
+gs_xgb.fit(X=X_train[features], y=y_train[targets], eval_set=[(X_val, y_val)])
+```
+
+```python
+gs_xgb.best_estimator_
+```
+
+```python
+gs_xgb.best_score_
+```
+
+```python
+scores['gs_xgb'] = gs_xgb.best_score_
+```
+
+```python
+gs_xgb.best_params_
+```
+
+now we need to figure out what's the best n_estimators for XGBRegressor
+
+```python
+gs_xgb.cv_results_
+```
+
+```python
+def f(max_depth, learning_rate):
+    print(learning_rate, max_depth)
+f(**gs_xgb.best_params_)
+```
+
+```python
+xgb_reg = XGBRegressor(**gs_xgb.best_params_, early_stopping_rounds=10, n_estimators=100)
+xgb_reg.fit(X=X_train[features], y=y_train[targets], eval_set=[(X_val, y_val)])
+```
+
+ok let's keep n_estimators=100
+
+```python
+from sklearn.ensemble import VotingRegressor
+```
+
+```python
+vote = VotingRegressor(estimators=[
+    ('xgb',  XGBRegressor(**gs_xgb.best_params_, n_estimators=100)),
+    ('linreg', LinearRegression()),
+    ('rf', RandomForestRegressor(**gs_rf.best_params_))
+])
+```
+
+unfortunately, VotingRegressor does not do multi-target regression
+
+```python
+score = cross_val_score(estimator=vote,
+                        X=large_df[features],
+                        y=large_df[targets],
+                        scoring='neg_root_mean_squared_error',
+                        cv=n_splits,)
+```
+
+```python
+from sklearn.multioutput import MultiOutputRegressor
+```
+
+```python
+score = cross_val_score(estimator=MultiOutputRegressor(vote),
+                        X=large_df[features],
+                        y=large_df[targets],
+                        scoring='neg_root_mean_squared_error',
+                        cv=n_splits,)
+```
+
+```python
+score.mean()
+```
+
+```python
+scores['vote_xgb_linreg_rf'] = score.mean()
+```
+
+```python
+sorted(scores.items())
+```
+
+```python
+
+```
