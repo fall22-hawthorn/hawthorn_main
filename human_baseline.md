@@ -99,3 +99,11 @@ get_error(results.query('name == "alex"'))
 ```python
 get_error(results.query('name == "abdallah"'))
 ```
+
+```python
+get_error(results.query('name == "shahinde"'))
+```
+
+```python
+
+```
