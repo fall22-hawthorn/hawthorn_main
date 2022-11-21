@@ -73,7 +73,12 @@ df
 ```
 
 ```python
+pd.set_option('display.max_rows', 100)
 results
+```
+
+```python
+pd.reset_option('display.max_rows')
 ```
 
 ```python
@@ -93,17 +98,5 @@ get_error(results)
 ```
 
 ```python
-get_error(results.query('name == "alex"'))
-```
-
-```python
-get_error(results.query('name == "abdallah"'))
-```
-
-```python
-get_error(results.query('name == "shahinde"'))
-```
-
-```python
-
+results.groupby('name').apply(get_error)
 ```
