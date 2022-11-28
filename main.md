@@ -196,6 +196,126 @@ for col_name in ['sb_pronoun',
     large_df[col_name + '_ratio'] = large_df[col_name] / large_df['sentences']
 ```
 
+feature idea: number of correctly spelled noncommon english words
+
+```python
+common_words_1k_filename = '1-1000.txt'
+with open(common_words_1k_filename) as f:
+    common_words_1k = set(x.strip() for x in f.readlines())
+
+common_words_filename_10k = 'google-10000-english-no-swears.txt'
+with open(common_words_filename_10k) as f:
+    common_words_10k = set(x.strip() for x in f.readlines())
+
+# make sure common_words are a subset as well
+common_words_10k.update(common_words_1k)
+```
+
+```python
+from nltk.tokenize import word_tokenize
+import enchant
+
+enchant_dict = enchant.Dict("en_US")
+
+def get_noncommon_words_count(text, common_words_dict):
+    # first, tokenize the text
+    # second, iterate over tokens and see whether
+    # a. it is a word
+    # b. not in common_words
+    # c. correctly spelled
+    # d. does not have underscore '_'
+
+    def is_noncommon_word(w):
+        return  len(w) > 2 and\
+                w not in common_words_dict and\
+                '_' not in w and\
+                enchant_dict.check(w)
+
+    return sum(is_noncommon_word(x) for x in word_tokenize(text.lower()))
+
+def get_noncommon_words_count_1k(text):
+    return get_noncommon_words_count(text, common_words_1k)
+
+def get_noncommon_words_count_10k(text):
+    return get_noncommon_words_count(text, common_words_10k)
+```
+
+```python
+large_df['noncommon_words_1k'] = large_df['full_text'].apply(get_noncommon_words_count_1k)
+large_df['noncommon_words_10k'] = large_df['full_text'].apply(get_noncommon_words_count_10k)
+```
+
+```python
+large_df['noncommon_words_1k_ratio'] = large_df['noncommon_words_1k'] / large_df['words']
+large_df['noncommon_words_10k_ratio'] = large_df['noncommon_words_10k'] / large_df['words']
+```
+
+```python
+profanity_filename = 'profanity.txt'
+with open(profanity_filename) as f:
+    profanity_set = set(x.strip() for x in f.readlines())
+
+def get_profanity_count(text):
+    return sum(x in profanity_set for x in word_tokenize(text.lower()))
+```
+
+```python
+large_df['profanity_count'] = large_df['full_text'].apply(get_profanity_count)
+```
+
+```python
+large_df['profanity_count'].hist()
+```
+
+```python
+words_freq_filename = "count_1w.txt"
+```
+
+```python
+words_freq = pd.read_csv(words_freq_filename,
+                         names=['word', 'freq'],
+                         sep='\t',
+                         header=None,
+                         dtype={'word': str, 'freq': int},
+                         keep_default_na=False,
+                         na_values=[''])
+```
+
+```python
+words_freq.freq.plot.line(logy=True)
+```
+
+```python
+words_freq.word.apply(lambda x: x[0].isupper()).any()
+```
+
+```python
+words_freq = words_freq.set_index('word')
+```
+
+```python
+def get_uncommon_words_counts(text):
+    #print(text)
+    word_freq_thresholds = np.array([1e8, 1e7, 1e6, 1e5], dtype=int)
+    counts = np.zeros(len(word_freq_thresholds), dtype=int)
+    for w in word_tokenize(text):
+        if len(w) <  3 or '_' in w or not enchant_dict.check(w) or w not in words_freq.index:
+            continue
+        w_freq = words_freq.loc[w].values[0]
+        counts += (word_freq_thresholds > w_freq)
+    return counts
+```
+
+```python
+get_uncommon_words_counts(large_df['full_text'][0])
+```
+
+```python
+large_df[['uwc1e8', 'uwc1e7', 'uwc1e6', 'uwc1e5']] = large_df[['full_text']].apply(lambda x: get_uncommon_words_counts(x[0]), axis=1, result_type='expand')
+```
+
+feature generation complete
+
 ```python
 features = large_df.columns[8:].to_list()
 ```
@@ -247,7 +367,7 @@ n_splits = 5
 ```
 
 ```python
-score = cross_val_score(estimator=LinearRegression(),
+score = -cross_val_score(estimator=LinearRegression(),
                         X=large_df[features],
                         y=large_df[targets],
                         scoring='neg_root_mean_squared_error',
@@ -263,7 +383,7 @@ scores['linreg'] = score.mean()
 ```
 
 ```python
-score = cross_val_score(estimator=make_pipeline(Normalizer(), LinearRegression()),
+score = -cross_val_score(estimator=make_pipeline(Normalizer(), LinearRegression()),
                         X=large_df[features],
                         y=large_df[targets],
                         scoring='neg_root_mean_squared_error',
@@ -279,7 +399,7 @@ scores['norm_linreg'] = score.mean()
 ```
 
 ```python
-score = cross_val_score(estimator=make_pipeline(StandardScaler(), LinearRegression()),
+score = -cross_val_score(estimator=make_pipeline(StandardScaler(), LinearRegression()),
                         X=large_df[features],
                         y=large_df[targets],
                         scoring='neg_root_mean_squared_error',
@@ -312,11 +432,11 @@ gs_elastic.best_estimator_
 ```
 
 ```python
-gs_elastic.best_score_
+-gs_elastic.best_score_
 ```
 
 ```python
-scores['gs_elastic'] = gs_elastic.best_score_
+scores['gs_elastic'] = -gs_elastic.best_score_
 ```
 
 ```python
@@ -324,7 +444,7 @@ from sklearn.ensemble import RandomForestRegressor
 ```
 
 ```python
-score = cross_val_score(estimator=RandomForestRegressor(max_depth=5),
+score = -cross_val_score(estimator=RandomForestRegressor(max_depth=5),
                         X=large_df[features],
                         y=large_df[targets],
                         scoring='neg_root_mean_squared_error',
@@ -348,11 +468,11 @@ gs_rf.best_estimator_
 ```
 
 ```python
-gs_rf.best_score_
+-gs_rf.best_score_
 ```
 
 ```python
-scores['gs_rf'] = gs_rf.best_score_
+scores['gs_rf'] = -gs_rf.best_score_
 ```
 
 ```python
@@ -360,7 +480,7 @@ from xgboost import XGBRegressor
 ```
 
 ```python
-score = cross_val_score(estimator=XGBRegressor(max_depth=5),
+score = -cross_val_score(estimator=XGBRegressor(max_depth=5),
                         X=large_df[features],
                         y=large_df[targets],
                         scoring='neg_root_mean_squared_error',
@@ -392,11 +512,11 @@ gs_xgb.best_estimator_
 ```
 
 ```python
-gs_xgb.best_score_
+-gs_xgb.best_score_
 ```
 
 ```python
-scores['gs_xgb'] = gs_xgb.best_score_
+scores['gs_xgb'] = -gs_xgb.best_score_
 ```
 
 ```python
@@ -437,7 +557,7 @@ vote = VotingRegressor(estimators=[
 unfortunately, VotingRegressor does not do multi-target regression
 
 ```python
-score = cross_val_score(estimator=vote,
+score = -cross_val_score(estimator=vote,
                         X=large_df[features],
                         y=large_df[targets],
                         scoring='neg_root_mean_squared_error',
@@ -449,7 +569,7 @@ from sklearn.multioutput import MultiOutputRegressor
 ```
 
 ```python
-score = cross_val_score(estimator=MultiOutputRegressor(vote),
+score = -cross_val_score(estimator=MultiOutputRegressor(vote),
                         X=large_df[features],
                         y=large_df[targets],
                         scoring='neg_root_mean_squared_error',
@@ -465,7 +585,11 @@ scores['vote_xgb_linreg_rf'] = score.mean()
 ```
 
 ```python
-sorted(scores.items())
+scores_df = pd.DataFrame(sorted(scores.items(), key=lambda x: x[1]), columns=['model', 'score'])
+```
+
+```python
+scores_df
 ```
 
 ```python
