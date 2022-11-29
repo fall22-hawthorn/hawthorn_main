@@ -314,6 +314,61 @@ get_uncommon_words_counts(large_df['full_text'][0])
 large_df[['uwc1e8', 'uwc1e7', 'uwc1e6', 'uwc1e5']] = large_df[['full_text']].apply(lambda x: get_uncommon_words_counts(x[0]), axis=1, result_type='expand')
 ```
 
+```python
+large_df[['uwc1e8_ratio', 'uwc1e7_ratio', 'uwc1e6_ratio', 'uwc1e5_ratio']] = large_df[['uwc1e8', 'uwc1e7', 'uwc1e6', 'uwc1e5']].div(large_df['words'], axis=0)
+```
+
+```python
+import language_tool_python
+```
+
+```python
+tool = language_tool_python.LanguageTool('en-US')
+```
+
+```python
+# I have commented out categories giving 0 columns in train dataset
+# SEMANTICS is mostly 0, ill drop it as well
+LT_categories = ['CASING',
+                 #'COLLOQUIALISMS',
+                 'COMPOUNDING',
+                 'CONFUSED_WORDS',
+                 #'FALSE_FRIENDS',
+                 #'GENDER_NEUTRALITY',
+                 'GRAMMAR',
+                 'MISC',
+                 'PUNCTUATION',
+                 'REDUNDANCY',
+                 #'REGIONALISMS',
+                 #'REPETITIONS',
+                 #'REPETITIONS_STYLE',
+                 #'SEMANTICS',
+                 'STYLE',
+                 'TYPOGRAPHY',
+                 'TYPOS',
+                 'TOTAL',
+                ]
+def get_LT_features(text):
+    '''
+    Generates LanguateTool features: each category count and a total number
+    '''
+    matches = tool.check(text)
+    cat_counts = [sum(m.category == cat for m in matches) for cat in LT_categories[:-1]]
+    return cat_counts + [len(matches)]
+```
+
+```python
+get_LT_features(large_df['full_text'][0])
+```
+
+```python
+large_df[['LT_' + x for x in LT_categories]] =  large_df[['full_text']].apply(lambda x: get_LT_features(x[0]), axis=1, result_type='expand')
+```
+
+```python
+large_df[['LT_' + x + '_ratio' for x in LT_categories]] = large_df[['LT_' + x for x in LT_categories]].div(large_df['words'], axis=0)
+```
+
 feature generation complete
 
 ```python
@@ -328,6 +383,16 @@ g.map(corrfunc)
 ```python
 fig, ax = plt.subplots(figsize=(10, 20))
 sns.heatmap(large_df[targets + features].corr().iloc[len(targets):, :len(targets)], annot=True, ax=ax)
+```
+
+```python
+# abs heatmap
+fig, ax = plt.subplots(figsize=(10, 20))
+sns.heatmap(large_df[targets + features].corr().iloc[len(targets):, :len(targets)].abs(), annot=True, ax=ax)
+```
+
+```python
+large_df.describe().loc['std'].sort_values()
 ```
 
 ```python
