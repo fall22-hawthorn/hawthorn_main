@@ -376,8 +376,9 @@ features = large_df.columns[8:].to_list()
 ```
 
 ```python
-g = sns.pairplot(large_df, x_vars=targets, y_vars=features, kind='reg')
-g.map(corrfunc)
+# too slow
+# g = sns.pairplot(large_df, x_vars=targets, y_vars=features, kind='reg')
+# g.map(corrfunc)
 ```
 
 ```python
@@ -409,6 +410,7 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import make_pipeline, Pipeline
 from sklearn.preprocessing import Normalizer, StandardScaler
 from sklearn.model_selection import train_test_split
+from sklearn.decomposition import PCA
 ```
 
 ```python
@@ -477,6 +479,20 @@ score.mean()
 
 ```python
 scores['std_linreg'] = score.mean()
+```
+
+```python
+scores['std_pca_linreg'] = -cross_val_score(estimator=make_pipeline(StandardScaler(),
+                                                                    PCA(n_components=50),
+                                                                    LinearRegression()),
+                        X=large_df[features],
+                        y=large_df[targets],
+                        scoring='neg_root_mean_squared_error',
+                        cv=n_splits,).mean()
+```
+
+```python
+scores['std_pca_linreg']
 ```
 
 ```python
@@ -655,6 +671,121 @@ scores_df = pd.DataFrame(sorted(scores.items(), key=lambda x: x[1]), columns=['m
 
 ```python
 scores_df
+```
+
+```python
+m = MultiOutputRegressor(vote)
+m.fit(X=large_df[features], y=large_df[targets])
+```
+
+```python
+from joblib import dump, load
+dump(m, 'xgb_linreg_rf.joblib')
+```
+
+Feature importance
+
+Hmm there is some problem with accessing models inside final voting regressor so we need to train each model separately.
+
+
+Lots of features are highly correlated, let's drop some of them.
+But how can we decide which feature to keep and which to drop?
+And if we drop a feature, does it mean we can forget about it in feature importance analysis?
+
+
+### ATTENTION: this linear regression model is not the same as before!
+
+```python
+def trimm_correlated(df_in, threshold):
+    df_corr = df_in.corr(method='pearson', min_periods=1)
+    df_not_correlated = ~(df_corr.mask(np.tril(np.ones([len(df_corr)]*2, dtype=bool))).abs() > threshold).any()
+    un_corr_idx = df_not_correlated.loc[df_not_correlated[df_not_correlated.index] == True].index
+    return df_in.columns.difference(un_corr_idx)
+```
+
+```python
+trimmed_df = large_df.copy()
+```
+
+```python
+trimmed_df = trimmed_df.drop(columns=trimm_correlated(trimmed_df[features], 0.9))
+```
+
+```python
+trimmed_df_features = trimmed_df.columns[8:].to_list()
+```
+
+```python
+len(features), len(trimmed_df_features)
+```
+
+```python
+std_lin_reg = make_pipeline(StandardScaler(), LinearRegression())
+std_lin_reg.fit(X=trimmed_df[trimmed_df_features], y=trimmed_df[targets])
+```
+
+```python
+-cross_val_score(estimator=make_pipeline(StandardScaler(), LinearRegression()),
+                        X=trimmed_df[trimmed_df_features],
+                        y=trimmed_df[targets],
+                        scoring='neg_root_mean_squared_error',
+                        cv=n_splits,).mean()
+```
+
+```python
+lin_reg_feature_imp = pd.DataFrame(data=std_lin_reg['linearregression'].coef_[0], index=trimmed_df_features)
+```
+
+```python
+lin_reg_feature_imp = lin_reg_feature_imp.sort_values(by=0, key=abs)
+```
+
+```python
+lin_reg_feature_imp
+```
+
+```python
+fig, ax = plt.subplots(figsize=(10, 20))
+lin_reg_feature_imp.plot.barh(y=0, ax=ax)
+```
+
+Feature importance for random forest
+### There are many other ways to study feature importance for random forest and this may be the best one!
+https://towardsdatascience.com/explaining-feature-importance-by-example-of-a-random-forest-d9166011959e
+
+```python
+rf_model = RandomForestRegressor(**gs_rf.best_params_)
+rf_model.fit(large_df[features], large_df[targets])
+```
+
+```python
+rf_feature_imp = pd.DataFrame(data=rf_model.feature_importances_, index=features).sort_values(by=0, key=abs)
+```
+
+```python
+fig, ax = plt.subplots(figsize=(10, 20))
+rf_feature_imp.plot.barh(y=0, ax=ax)
+```
+
+feature importance for xgbclassifier
+
+```python
+from xgboost import plot_importance
+```
+
+```python
+fig, ax = plt.subplots(figsize=(10, 20))
+plot_importance(xgb_reg, ax=ax)
+```
+
+```python
+fig, ax = plt.subplots(figsize=(10, 20))
+plot_importance(xgb_reg, ax=ax, importance_type='gain')
+```
+
+```python
+fig, ax = plt.subplots(figsize=(10, 20))
+plot_importance(xgb_reg, ax=ax, importance_type='cover')
 ```
 
 ```python
