@@ -1,4 +1,5 @@
 reqs
 *.ipynb
 __pycache__
+*.joblib
 .ipynb_checkpoints
