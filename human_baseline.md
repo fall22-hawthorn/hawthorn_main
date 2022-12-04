@@ -21,6 +21,9 @@ import numpy as np
 from os import listdir
 from os.path import join
 import re
+from joblib import load
+from features import FeatureGenerator
+from sklearn.metrics import mean_squared_error
 ```
 
 ```python
@@ -29,6 +32,10 @@ df = pd.read_csv('../train.csv')
 
 ```python
 targets = df.columns.difference(['text_id', 'full_text']).to_list()
+```
+
+```python
+targets
 ```
 
 ```python
@@ -65,6 +72,10 @@ results = pd.concat(d, axis=0, ignore_index=True)
 ```
 
 ```python
+df['text_id'].duplicated().any()
+```
+
+```python
 results['text_id'].duplicated().any()
 ```
 
@@ -94,9 +105,87 @@ def get_error(r: pd.DataFrame):
 ```
 
 ```python
-get_error(results)
+errors = pd.DataFrame()
 ```
 
 ```python
-results.groupby('name').apply(get_error)
+errors[['name', 'error']] = [['human_baseline', get_error(results)]]
+```
+
+```python
+errors
+```
+
+```python
+errors = pd.concat([errors, results.groupby('name').apply(get_error).reset_index(name='error')], ignore_index=True)
+```
+
+```python
+errors
+```
+
+now let's compare it with model performance
+
+```python
+test_df = df.merge(results.text_id, how='right')
+```
+
+```python
+mean_squared_error(test_df[targets], results[targets], squared=False)
+```
+
+```python
+train_df = df.merge(results.text_id, how='left', indicator=True)
+```
+
+```python
+train_df = train_df[train_df['_merge'] == 'left_only']
+```
+
+```python
+train_df = train_df.drop(columns=['_merge'])
+```
+
+```python
+model = load('./xgb_linreg_rf.joblib')
+```
+
+```python
+feature_generator = FeatureGenerator()
+```
+
+```python
+train_df = feature_generator.generate_features(train_df)
+```
+
+```python
+test_df = feature_generator.generate_features(test_df)
+```
+
+```python
+features = train_df.iloc[:,8:].columns
+```
+
+```python
+model.fit(train_df[features], train_df[targets])
+```
+
+```python
+model_test_error = mean_squared_error(test_df[targets], model.predict(test_df[features]), squared=False)
+```
+
+```python
+errors = pd.concat([errors, pd.DataFrame({'name': ['model'], 'error': [model_test_error]})], ignore_index=True)
+```
+
+```python
+errors
+```
+
+```python
+errors.sort_values(by='error', ascending=False).plot.barh(x='name', y='error')
+```
+
+```python
+
 ```
