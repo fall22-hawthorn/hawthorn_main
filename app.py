@@ -1,3 +1,4 @@
+# +
 from features import FeatureGenerator
 from joblib import load
 import gradio as gr
@@ -15,7 +16,7 @@ def round_h(x):
 def score_essay(text):
     if not text:
         gr.Error("Empty essay text")
-        return ""
+        return None, None
     df = pd.DataFrame({"full_text": [text]})
     df = feature_generator.generate_features(df)
     res = model.predict(df.iloc[:, 1:])[0].clip(1, 5)
