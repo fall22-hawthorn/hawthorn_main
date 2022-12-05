@@ -146,6 +146,30 @@ train_df = train_df[train_df['_merge'] == 'left_only']
 train_df = train_df.drop(columns=['_merge'])
 ```
 
+let's start with dummy regressor
+
+```python
+from sklearn.dummy import DummyRegressor
+```
+
+```python
+dummy_mean_reg = DummyRegressor()
+```
+
+```python
+dummy_mean_reg.fit(X=train_df, y=train_df[targets])
+```
+
+```python
+dummy_test_error = mean_squared_error(test_df[targets], dummy_mean_reg.predict(X=test_df), squared=False)
+```
+
+```python
+errors = pd.concat([errors, pd.DataFrame({'name': ['dummy_mean_reg'], 'error': [dummy_test_error]})], ignore_index=True)
+```
+
+now let's try our more advanced model
+
 ```python
 model = load('./xgb_linreg_rf.joblib')
 ```
