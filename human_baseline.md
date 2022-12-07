@@ -27,6 +27,11 @@ from sklearn.metrics import mean_squared_error
 ```
 
 ```python
+plt.rcParams['figure.dpi'] = 300
+plt.rcParams['savefig.dpi'] = 300
+```
+
+```python
 df = pd.read_csv('../train.csv')
 ```
 
@@ -171,6 +176,10 @@ errors = pd.concat([errors, pd.DataFrame({'name': ['dummy_mean_reg'], 'error': [
 now let's try our more advanced model
 
 ```python
+model_name = 'xgb_linreg_rf'
+```
+
+```python
 model = load('./xgb_linreg_rf.joblib')
 ```
 
@@ -179,27 +188,27 @@ feature_generator = FeatureGenerator()
 ```
 
 ```python
-train_df = feature_generator.generate_features(train_df)
+train_df_w_features = feature_generator.generate_features(train_df)
 ```
 
 ```python
-test_df = feature_generator.generate_features(test_df)
+test_df_w_features = feature_generator.generate_features(test_df)
 ```
 
 ```python
-features = train_df.iloc[:,8:].columns
+features = train_df_w_features.iloc[:,8:].columns
 ```
 
 ```python
-model.fit(train_df[features], train_df[targets])
+model.fit(train_df_w_features[features], train_df_w_features[targets])
 ```
 
 ```python
-model_test_error = mean_squared_error(test_df[targets], model.predict(test_df[features]), squared=False)
+model_test_error = mean_squared_error(test_df_w_features[targets], model.predict(test_df_w_features[features]), squared=False)
 ```
 
 ```python
-errors = pd.concat([errors, pd.DataFrame({'name': ['model'], 'error': [model_test_error]})], ignore_index=True)
+errors = pd.concat([errors, pd.DataFrame({'name': ['xgb_linreg_rf'], 'error': [model_test_error]})], ignore_index=True)
 ```
 
 ```python
