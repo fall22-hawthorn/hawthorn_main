@@ -27,6 +27,7 @@ from sklearn.metrics import mean_squared_error
 ```
 
 ```python
+# if the plots look bad, run it again
 plt.rcParams['figure.dpi'] = 300
 plt.rcParams['savefig.dpi'] = 300
 ```
@@ -110,23 +111,23 @@ def get_error(r: pd.DataFrame):
 ```
 
 ```python
-errors = pd.DataFrame()
+scores = pd.DataFrame()
 ```
 
 ```python
-errors[['name', 'error']] = [['human_baseline', get_error(results)]]
+scores[['name', 'score']] = [['human_baseline', get_error(results)]]
 ```
 
 ```python
-errors
+scores
 ```
 
 ```python
-errors = pd.concat([errors, results.groupby('name').apply(get_error).reset_index(name='error')], ignore_index=True)
+scores = pd.concat([scores, results.groupby('name').apply(get_error).reset_index(name='score')], ignore_index=True)
 ```
 
 ```python
-errors
+scores
 ```
 
 now let's compare it with model performance
@@ -170,7 +171,7 @@ dummy_test_error = mean_squared_error(test_df[targets], dummy_mean_reg.predict(X
 ```
 
 ```python
-errors = pd.concat([errors, pd.DataFrame({'name': ['dummy_mean_reg'], 'error': [dummy_test_error]})], ignore_index=True)
+scores = pd.concat([scores, pd.DataFrame({'name': ['dummy_mean_reg'], 'score': [dummy_test_error]})], ignore_index=True)
 ```
 
 now let's try our more advanced model
@@ -208,15 +209,23 @@ model_test_error = mean_squared_error(test_df_w_features[targets], model.predict
 ```
 
 ```python
-errors = pd.concat([errors, pd.DataFrame({'name': ['xgb_linreg_rf'], 'error': [model_test_error]})], ignore_index=True)
+scores = pd.concat([scores, pd.DataFrame({'name': ['xgb_linreg_rf'], 'score': [model_test_error]})], ignore_index=True)
 ```
 
 ```python
-errors
+scores
 ```
 
 ```python
-errors.sort_values(by='error', ascending=False).plot.barh(x='name', y='error')
+scores = scores.sort_values(by='score', ascending=False)
+scores.plot.barh(x='name', y='score')
+```
+
+```python
+ax = sns.barplot(data=scores, x='score', y='name')
+for container in ax.containers:
+    ax.bar_label(container, fmt='%.2f')
+ax.set_xbound(upper=1.3)
 ```
 
 ```python
