@@ -16,7 +16,7 @@ To start with this project, take a look at the Kaggle [competition](https://www.
 
 ## Requirements
 The project requires a number of additional packages to be installed which are listed in `requirements.txt`.
-One of the options to do so it to run
+One of the options to do so is to run
 `pip install -r /path/to/requirements.txt`
 
 ## Additional info
