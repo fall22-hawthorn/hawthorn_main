@@ -1,14 +1,18 @@
 # English proficiency checker
-
+[Slides](https://docs.google.com/presentation/d/1ZvPy25h1qGewxezwvOQ6vg1WUvwfPdKmsFG0RMoEQzQ) |
 [Demo](https://huggingface.co/spaces/alex42t/EssayChecker) |
 [Kaggle link](https://www.kaggle.com/c/feedback-prize-english-language-learning)
 
 ## About
 
-To start with this project, take a look at the Kaggle [competition](https://www.kaggle.com/c/feedback-prize-english-language-learning).
+In this project we aimed to create machine learning models to grade English essays written by 8th-12th grade English Language Learners (ELLs).
+The resulting model can be used to alleviate the burden of grading on teachers, who are often underpaid and overworked, while giving nearly instant feedback to ELLs.
+
+To start with this project, you take a look at the corresponding Kaggle [competition](https://www.kaggle.com/c/feedback-prize-english-language-learning).
+
 
 ## Files
-* `main.md`: main notebook 
+* `main.md`: main notebook with models and EDA
 * `human_baseline.md`: notebook with analysis of scoring by our hands
 * `features.py`: feature extractor class
 * `demopage.md`: playground for the gradio demo
